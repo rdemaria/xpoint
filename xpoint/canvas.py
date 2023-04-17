@@ -1,9 +1,11 @@
 from re import S
 from tkinter import E
 from turtle import st
-import numpy as np
+
 import matplotlib.pyplot as plt
-from point import Point
+import numpy as np
+
+from .point import Point
 from .style import apply_style
 
 

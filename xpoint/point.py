@@ -34,21 +34,21 @@ class Point:
         scx=None,
         scy=None,
         scz=None,
-        label=None,
+        name=None,
         body=None,
         style=None,
         degrees=True,
     ):
         self.matrix = np.eye(4)
         self.style = style
-        self.label = label
+        self.name = name
         self.body = body
         if isinstance(x_or_position_or_matrix_or_point, Point):
             self.set_matrix(x_or_position_or_matrix_or_point.matrix)
         elif matrix := is_array_like(
             x_or_position_or_matrix_or_point, ((4, 4), (3, 3))
         ):
-            self.set_matrix(matrix, style=style, label=label, body=body)
+            self.set_matrix(matrix, style=style, name=name, body=body)
         elif position := is_array_like(
             x_or_position_or_matrix_or_point, ((3,), (2,), (1,))
         ):
