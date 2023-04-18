@@ -94,8 +94,8 @@ class Canvas3D:
 
 class CanvasMPL2D:
     def __init__(self, xlabel="x [m]", ylabel="y [m]", title="", style=None):
-        self.parts = {}
-        self.artists = {}
+        self.parts = {} # stores parts and style
+        self.artists = {} # stores artists and reference to part
         if style is None:
             self.style = defaultstyle
         self.initialize(xlabel, ylabel, title)

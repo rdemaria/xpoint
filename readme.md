@@ -38,17 +38,34 @@ p.scaling, p.scx, p.scy, p.scz
 ```
 
 ### Translation
+Methods to create or change an entity to a new a location without changing the orientation:
+- using scalar coordinates, iterables, or existing point
+- relative or absolute change of location
+- location specified in global or local frame
+- create a new object or modify in place
+
+
 ```python
 # new point 
-p.translate(x,y,z)
-p.translate(x,y,z,local=True)
-p+Point([x,y,z])
+p.translate(delta) # move to point
+p.translate([dx,dy,dz]) # move using vector
+p.translate(dx=,dy=,dz=) # move using coordinates
+
+p.translate(target-reference) # move to point
+p.translate(target-[dx,dy,dz]) # move using vector
+p.translate(dx=tx-p.x,dy=ty-p.y,dz=tz-p.z) # move using coordinates
+
+
+p+Point([x,y,z])*p 
 p+[x,y,z]
+
 
 # in place
 p.location=[1,2,3]  ## p.translate(x,y,z,local=False,inplace=True)
 p.location+=[1,2,3] ## p.translate(p.x+x,p.y+y,p.z+z,local=False,inplace=True)
 p.location+=1*p.dx+2+p.dy ## p.translate(x,y,z,local=False,inplace=True)
+
+
 ```
 
 

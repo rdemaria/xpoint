@@ -7,11 +7,13 @@ TODO:
 
 """
 
-
 import re
+from collections.abc import Iterable
+
 import numpy as np
 from scipy.spatial.transform import Rotation
-from collections.abc import Iterable
+
+from .style import apply_style
 
 
 def direction(a: np.ndarray, b: np.ndarray):
@@ -44,7 +46,7 @@ class Point:
     def __init__(self,
                  position=None,
                  name=None,
-                 body=None,
+                 parts=None,
                  style=None,
                  seq="zxy",
                  degrees=True,
@@ -52,7 +54,7 @@ class Point:
         self.matrix = np.eye(4)
         self.style = style
         self.name = name
-        self.body = body
+        self.parts = parts
         self.seq = seq
         self.degrees = degrees
         if isinstance(position, Point):
@@ -271,34 +273,44 @@ class Point:
         return self * other
 
     def __getitem__(self, key):
-        return self.body[key].transform(self.matrix)
+        return self.parts[key].transform(self.matrix)
 
     def __setitem__(self, key, value):
-        self.body[key] = value.transform(np.linalg.inv(self.matrix))
+        self.parts[key] = value.transform(np.linalg.inv(self.matrix))
 
     def __iter__(self):
-        return iter(self.body)
+        return iter(self.parts)
 
     def __len__(self):
-        return len(self.body)
+        return len(self.parts)
 
     def __contains__(self, key):
-        return key in self.body
+        return key in self.parts
 
     def __delitem__(self, key):
-        del self.body[key]
+        del self.parts[key]
 
     def keys(self):
-        return self.body.keys()
+        return self.parts.keys()
 
     def values(self):
-        return (self.body[key] for key in self.body)
+        return (self.parts[key] for key in self.parts)
 
     def items(self):
-        return ((key, self.body[key]) for key in self.body)
+        return ((key, self.parts[key]) for key in self.parts)
 
     def draw2d(self, projection='xy', backend='matplotlib'):
         from .canvas import Canvas2D
 
     def draw3d(self, backend='pyvista'):
         from .canvas import Canvas3D
+
+    def get_primitives(self, style):
+        style = apply_style(self, style)
+        out=[]
+        if style.get("draw_subparts",True) == True:
+            for k, part in self.parts.items():
+                out += part.get_primitives(style)
+        if style.get("draw_location",False) == True:
+            out.append((Point(self.location), style, self))
+        return out
