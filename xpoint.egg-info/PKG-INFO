@@ -1,9 +1,0 @@
-Metadata-Version: 2.1
-Name: xpoint
-Version: 0.0.0
-Summary: Library for 3D geometry
-Author-email: Riccardo De Maria <riccardodemaria@gmail.com>
-License: MIT
-Project-URL: homepage, https://github.com/rdemaria/xpoint
-Project-URL: repository, https://github.com/rdemaria/xpoint
-Keywords: geometry
