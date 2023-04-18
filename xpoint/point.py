@@ -24,9 +24,9 @@ class Point:
 
     def __init__(
         self,
-        x_or_position_or_matrix_or_point=None,
-        y_or_rotation=None,
-        z_or_scaling=None,
+        x_or_position_or_point=0,
+        y_or_rotation=0,
+        z_or_scaling=0,
         rotz=0,
         rotx=0,
         roty=0,
@@ -43,20 +43,24 @@ class Point:
         self.style = style
         self.name = name
         self.body = body
-        if x_or_position_or_matrix_or_point is None:
-            return
+        self.seq = seq
+        self.degrees = degrees
         # one arg definition: Point, matrix 3x3 or 4x4
-        elif isinstance(x_or_position_or_matrix_or_point, Point):
-            self.set_matrix(x_or_position_or_matrix_or_point.matrix)
-        elif matrix := is_array_like(
-                x_or_position_or_matrix_or_point, ((4, 4), (3, 3))
-        ):
+        if isinstance(x_or_position_or_point, Point):
+            self.set_matrix(x_or_position_or_point.matrix)
+        elif matrix := is_array_like(x_or_position_or_point, ((4, 4), (3, 3))):
             self.set_matrix(matrix, style=style, name=name, body=body)
         else:  # (position, rotation, scaling)
             if position := is_array_like(
-                x_or_position_or_matrix_or_point, ((3,), (2,), (1,))
+                x_or_position_or_point, ((3,), (2,), (1,))
             ):
                 self.position = position
+            else:
+                self.position = (
+                    x_or_position_or_point,
+                    y_or_rotation,
+                    z_or_scaling,
+                )
             if rotation := is_array_like(y_or_rotation, ((3,), (2,), (1,))):
                 self.set_rotation(rotation, degrees=degrees, seq=seq)
             else:
@@ -81,7 +85,9 @@ class Point:
         else:
             raise ValueError("matrix must be 4x4 or 3x3")
 
-    def set_rotation(self, rotation=None, rotx=0, roty=0, rotz=0, degrees=True, seq="zxy"):
+    def set_rotation(
+        self, rotation=None, rotx=0, roty=0, rotz=0, degrees=True, seq="zxy"
+    ):
         """Set rotation from Rotation, 3x3 matrix, euler angles or quaternion"""
         if rotation is None:
             rotmat = Rotation.from_euler(
@@ -144,7 +150,7 @@ class Point:
 
     @position.setter
     def set_position(self, value):
-        self.matrix[3, :len(value)] = value
+        self.matrix[3, : len(value)] = value
 
     @property
     def x(self):
@@ -176,7 +182,7 @@ class Point:
 
     @property
     def rotation_euler(self):
-        return self.rotation.as_euler("zxy")
+        return self.rotation.as_euler(seq=self.seq, degrees=self.degrees)
 
     @property
     def rotation_axis(self):
@@ -192,32 +198,32 @@ class Point:
 
     @property
     def rotx(self):
-        return self.rotation.as_euler("x")
+        return self.rotation[0]
 
     @rotx.setter
     def rotx(self, rotx):
-        self.rotation = Rotation.from_euler(
-            "xyz", (rotx, self.roty, self.rotz)
+        self.matrix[:3,:3] = Rotation.from_euler(
+            seq=self.seq, angles=(rotx, self.roty, self.rotz),degrees=self.degrees
         ).as_matrix()
 
     @property
     def roty(self):
-        return self.rotation.as_euler("y")
+        return self.rotation[1]
 
     @roty.setter
     def roty(self, roty):
-        self.rotation = Rotation.from_euler(
-            "xyz", (self.rotx, roty, self.rotz)
+        self.matrix[:3,:3] = Rotation.from_euler(
+            seq=self.seq, angles=(self.rotx, roty, self.rotz),degrees=self.degrees
         ).as_matrix()
 
     @property
     def rotz(self):
-        return self.rotation.as_euler("z")
+        return self.rotation[2]
 
     @rotz.setter
     def rotz(self, rotz):
-        self.rotation = Rotation.from_euler(
-            "xyz", (self.rotx, self.roty, rotz)
+        self.matrix[:3,:3] = Rotation.from_euler(
+            seq=self.seq, angles=(self.rotx, self.roty, rotz),degrees=self.degrees
         ).as_matrix()
 
     @property
@@ -239,58 +245,58 @@ class Point:
     def __add__(self, other):
         """Return lhs translated by rhs"""
         if isinstance(other, Point):
-            return self.moveby(other.position, inplace=False)
+            return self.translate(other.position, inplace=False)
         else:
-            return self.moveby(other, inplace=False)
+            return self.translate(other, inplace=False)
 
     def __mul__(self, other):
         """Return lhs rotate by rhs"""
         if isinstance(other, Point):
-            return self.rotateby(other.rotation, inplace=False)
+            return self.rotate(other.rotation, inplace=False)
         else:
-            return self.rotateby(other, inplace=False)
+            return self.rotate(other, inplace=False)
 
     def __sub__(self, other):
         """Return lhs translated by -rhs"""
         if isinstance(other, Point):
-            return self.moveby(-other.position, inplace=False)
+            return self.translate(-other.position, inplace=False)
         else:
-            return self.moveby(-other, inplace=False)
+            return self.translate(-other, inplace=False)
 
     def __truediv__(self, other):
         """Return lhs rotate by inv(rhs)"""
         if isinstance(other, Point):
-            return self.rotateby(-other.rotation, inplace=False)
+            return self.rotate(-other.rotation, inplace=False)
         else:
-            return self.rotateby(-other, inplace=False)
+            return self.rotate(-other, inplace=False)
 
     def __iadd__(self, other):
         """Translate lhs by rhs"""
         if isinstance(other, Point):
-            return self.moveby(other.position, inplace=True)
+            return self.translate(other.position, inplace=True)
         else:
-            return self.moveby(other, inplace=True)
+            return self.translate(other, inplace=True)
 
     def __imul__(self, other):
         """Rotate lhs by rhs"""
         if isinstance(other, Point):
-            return self.rotateby(other.rotation, inplace=True)
+            return self.rotate(other.rotation, inplace=True)
         else:
-            return self.rotateby(other, inplace=True)
+            return self.rotate(other, inplace=True)
 
     def __isub__(self, other):
         """Translate lhs by -rhs"""
         if isinstance(other, Point):
-            return self.moveby(-other.position, inplace=True)
+            return self.translate(-other.position, inplace=True)
         else:
-            return self.moveby(-other, inplace=True)
+            return self.translate(-other, inplace=True)
 
     def __itruediv__(self, other):
         """Rotate lhs by inv(rhs)"""
         if isinstance(other, Point):
-            return self.rotateby(-other.rotation, inplace=True)
+            return self.rotate(-other.rotation, inplace=True)
         else:
-            return self.rotateby(-other, inplace=True)
+            return self.rotate(-other, inplace=True)
 
     def __neg__(self):
         """Return inverse of point"""
@@ -324,3 +330,74 @@ class Point:
 
     def transform(self, other):
         return self * other
+    
+    def __getitem__(self, key):
+        return self.body[key].transform(self.matrix)
+    
+    def __setitem__(self, key, value):
+        self.body[key]=value.transform(np.linalg.inv(self.matrix))
+
+    def __iter__(self):
+        return iter(self.body)
+    
+    def __len__(self):
+        return len(self.body)
+    
+    def __contains__(self, key):
+        return key in self.body
+    
+    def __delitem__(self, key):
+        del self.body[key]
+
+    def keys(self):
+        return self.body.keys()
+    
+    def values(self):
+        return (self.body[key] for key in self.body)
+    
+    def items(self):
+        return ((key, self.body[key]) for key in self.body)
+
+
+class Line(Point):
+    def __init__(self, start, end, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.body={'start':start,'end':end}
+
+    @property
+    def start(self):
+        return self.body['start']
+    
+    @start.setter
+    def start(self, value):
+        self.body['start']=value
+
+    @property
+    def end(self):
+        return self.body['end']
+    
+    @end.setter
+    def end(self, value):
+        self.body['end']=value
+
+
+class Line(Point):
+    def __init__(self, points, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.body={'start':start,'end':end}
+
+    @property
+    def start(self):
+        return self.body['start']
+    
+    @start.setter
+    def start(self, value):
+        self.body['start']=value
+
+    @property
+    def end(self):
+        return self.body['end']
+    
+    @end.setter
+    def end(self, value):
+        self.body['end']=value
