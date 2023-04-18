@@ -1,3 +1,13 @@
+"""
+
+TODO:
+    - implement scaling
+    - implement get_primitives, Line, PolyLine, Text, Distance
+    - implement draw
+
+"""
+
+
 import re
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -9,6 +19,11 @@ def direction(a: np.ndarray, b: np.ndarray):
     return (b - a) / np.linalg.norm(b - a)
 
 
+def is_iterable(obj):
+    """Check if object is iterable"""
+    return hasattr(obj, "__iter__")
+
+
 def is_array_like(obj, shapes: Iterable[int]):
     """Check if object is array like"""
     try:
@@ -16,140 +31,49 @@ def is_array_like(obj, shapes: Iterable[int]):
         assert obj.shape in shapes
         return obj
     except (AssertionError, ValueError):
-        return False
+        return None
+
+
+def has_shape(obj, shapes):
+    return obj.shape in shapes
 
 
 class Point:
     """A point in 3D space with an orientation"""
 
-    def __init__(
-        self,
-        x_or_position_or_point=0,
-        y_or_rotation=0,
-        z_or_scaling=0,
-        rotz=0,
-        rotx=0,
-        roty=0,
-        scx=1,
-        scy=1,
-        scz=1,
-        name=None,
-        body=None,
-        style=None,
-        seq="zxy",
-        degrees=True,
-    ):
+    def __init__(self,
+                 position=None,
+                 name=None,
+                 body=None,
+                 style=None,
+                 seq="zxy",
+                 degrees=True,
+                 ):
         self.matrix = np.eye(4)
         self.style = style
         self.name = name
         self.body = body
         self.seq = seq
         self.degrees = degrees
-        # one arg definition: Point, matrix 3x3 or 4x4
-        if isinstance(x_or_position_or_point, Point):
-            self.set_matrix(x_or_position_or_point.matrix)
-        elif matrix := is_array_like(x_or_position_or_point, ((4, 4), (3, 3))):
-            self.set_matrix(matrix, style=style, name=name, body=body)
-        else:  # (position, rotation, scaling)
-            if position := is_array_like(
-                x_or_position_or_point, ((3,), (2,), (1,))
-            ):
-                self.position = position
-            else:
-                self.position = (
-                    x_or_position_or_point,
-                    y_or_rotation,
-                    z_or_scaling,
-                )
-            if rotation := is_array_like(y_or_rotation, ((3,), (2,), (1,))):
-                self.set_rotation(rotation, degrees=degrees, seq=seq)
-            else:
-                self.set_rotation((rotx, roty, rotz), degrees=degrees, seq=seq)
-            if scaling := is_array_like(z_or_scaling, ((3,), (2,), (1,))):
-                self.scaling = scaling
-            else:
-                self.scaling = (scx, scy, scz)
-
-    def set_matrix(self, matrix=None):
-        """Create a point from a 4x4 matrix"""
-        if matrix is not None:
-            try:
-                matrix = np.array(matrix)
-            except ValueError:
-                raise ValueError("matrix must be 4x4 or 3x3 array or list")
-        if matrix.shape == (3, 3):
-            matrix = np.eye(4)
-            matrix[:3, :3] = matrix
-        elif matrix.shape == (4, 4):
-            self.matrix[:] = matrix
+        if isinstance(position, Point):
+            self.matrix[:] = position.matrix
+        elif isinstance(position, Rotation):
+            self.matrix[:3, :3] = position.as_matrix()
         else:
-            raise ValueError("matrix must be 4x4 or 3x3")
-
-    def set_rotation(
-        self, rotation=None, rotx=0, roty=0, rotz=0, degrees=True, seq="zxy"
-    ):
-        """Set rotation from Rotation, 3x3 matrix, euler angles or quaternion"""
-        if rotation is None:
-            rotmat = Rotation.from_euler(
-                seq, (rotx, roty, rotz), degrees=degrees
-            ).as_matrix()
-        elif isinstance(rotation, Rotation):
-            rotmat = rotation.as_matrix()
-        elif rotation is not None:  # try to use array
-            try:
-                rotation = np.array(rotation)
-            except ValueError:
-                raise ValueError("rotation must Rotation, 3x1 or 4x1 array")
-            if rotation.shape == (3, 3):
-                self.matrix[:3, :3] = rotation
-            elif rotation.shape == (4,):
-                self.matrix[:3, :3] = Rotation.from_quat(rotation).as_matrix()
-            else:
-                self.matrix[:3, :3] = Rotation.from_euler(
-                    seq, rotation, degrees=degrees
-                ).as_matrix()
-        else:
-            raise ValueError("rotation must be Rotation, 3x1 or 4x1 array")
-        self.matrix[:3, :3] = rotmat
-
-    def apply_scaling(self, scaling):
-        """Apply scaling to point"""
-        scalingv = np.ones(4)
-        if scaling is not None:
-            if scaling := is_array_like(scaling, ((3,), (2,), (1,))):
-                scalingv[: len(scaling)] = scaling
-            else:
-                try:
-                    scaling[:3] = scaling
-                except ValueError:
-                    raise ValueError("scaling must be 3x1 array or list")
-            self.matrix @= scaling
-
-    def set_xyz(
-        self,
-        x=None,
-        y=None,
-        z=None,
-        rotx=None,
-        roty=None,
-        rotz=None,
-        scx=None,
-        scy=None,
-        scz=None,
-        seq="zxy",
-        degrees=True,
-    ):
-        """Set position, rotation and scaling"""
-        self.set_position((x, y, z))
-        self.set_rotation((rotx, roty, rotz), seq=seq, degrees=degrees)
-        self.apply_scaling((scx, scy, scz))
+            position = np.array(position)
+            if position.shape == (4, 4):
+                self.matrix[:] = position
+            elif position.shape == (3, 3):
+                self.matrix[:3, :3] = position
+            elif position.shape in ((3,), (2,), (1,)):
+                self.matrix[3, :len(position)] = position
 
     @property
     def position(self):
         return self.matrix[3, :3]
 
     @position.setter
-    def set_position(self, value):
+    def position(self, value):
         self.matrix[3, : len(value)] = value
 
     @property
@@ -202,8 +126,9 @@ class Point:
 
     @rotx.setter
     def rotx(self, rotx):
-        self.matrix[:3,:3] = Rotation.from_euler(
-            seq=self.seq, angles=(rotx, self.roty, self.rotz),degrees=self.degrees
+        self.matrix[:3, :3] = Rotation.from_euler(
+            seq=self.seq, angles=(
+                rotx, self.roty, self.rotz), degrees=self.degrees
         ).as_matrix()
 
     @property
@@ -212,8 +137,9 @@ class Point:
 
     @roty.setter
     def roty(self, roty):
-        self.matrix[:3,:3] = Rotation.from_euler(
-            seq=self.seq, angles=(self.rotx, roty, self.rotz),degrees=self.degrees
+        self.matrix[:3, :3] = Rotation.from_euler(
+            seq=self.seq, angles=(
+                self.rotx, roty, self.rotz), degrees=self.degrees
         ).as_matrix()
 
     @property
@@ -222,8 +148,9 @@ class Point:
 
     @rotz.setter
     def rotz(self, rotz):
-        self.matrix[:3,:3] = Rotation.from_euler(
-            seq=self.seq, angles=(self.rotx, self.roty, rotz),degrees=self.degrees
+        self.matrix[:3, :3] = Rotation.from_euler(
+            seq=self.seq, angles=(self.rotx, self.roty,
+                                  rotz), degrees=self.degrees
         ).as_matrix()
 
     @property
@@ -320,84 +247,58 @@ class Point:
     def __ne__(self, other):
         return not self == other
 
-    def translate(self, position, local=True):
+    def copy(self):
+        return Point(self.matrix, seq=self.seq, degrees=self.degrees, name=self)
+
+    def translate(self, x_or_position=0, y=0, z=0, local=True, inplace=False):
+        if position := is_array_like(x_or_position, ((3,), (2,), (1,))):
+            position = np.array(position)
+        else:
+            position = np.array([x_or_position, y, z])
+        if inplace:
+            point = self
+        else:
+            point = self.copy()
         if local:
-            self.position += self.rotation.apply(position)
-        return self
+            position = self.matrix@position
+        point.position += position
+        return point
 
     def rotate(self, axis, angle, degrees=True):
         self.rotation *= Rotation.from_euler(axis, angle, degrees=degrees)
 
     def transform(self, other):
         return self * other
-    
+
     def __getitem__(self, key):
         return self.body[key].transform(self.matrix)
-    
+
     def __setitem__(self, key, value):
-        self.body[key]=value.transform(np.linalg.inv(self.matrix))
+        self.body[key] = value.transform(np.linalg.inv(self.matrix))
 
     def __iter__(self):
         return iter(self.body)
-    
+
     def __len__(self):
         return len(self.body)
-    
+
     def __contains__(self, key):
         return key in self.body
-    
+
     def __delitem__(self, key):
         del self.body[key]
 
     def keys(self):
         return self.body.keys()
-    
+
     def values(self):
         return (self.body[key] for key in self.body)
-    
+
     def items(self):
         return ((key, self.body[key]) for key in self.body)
 
+    def draw2d(self, projection='xy', backend='matplotlib'):
+        from .canvas import Canvas2D
 
-class Line(Point):
-    def __init__(self, start, end, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.body={'start':start,'end':end}
-
-    @property
-    def start(self):
-        return self.body['start']
-    
-    @start.setter
-    def start(self, value):
-        self.body['start']=value
-
-    @property
-    def end(self):
-        return self.body['end']
-    
-    @end.setter
-    def end(self, value):
-        self.body['end']=value
-
-
-class Line(Point):
-    def __init__(self, points, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.body={'start':start,'end':end}
-
-    @property
-    def start(self):
-        return self.body['start']
-    
-    @start.setter
-    def start(self, value):
-        self.body['start']=value
-
-    @property
-    def end(self):
-        return self.body['end']
-    
-    @end.setter
-    def end(self, value):
-        self.body['end']=value
+    def draw3d(self, backend='pyvista'):
+        from .canvas import Canvas3D

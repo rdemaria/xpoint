@@ -1,107 +1,109 @@
-XPoint
-===========================
+# XPoint
 
-Intro
-----------------------
-The library manages spatial entities:
+## Intro
 
-Point,
-Path, Line, Dimension, Arrow
-Mesh, Box, Pipe
+The library manages geometrical entities: Point, Line, ...
 
-API:
-ent.transform(point)
+A Point defines location of space and a local reference frame.
+A Point can have parts defined in the local reference frame.
 
-Point
------------------------
+All entities derive from Point and can be moved, rotated, scaled.
+Some entities, called primitives, can be drawn by Canvas objects with a given style.
+Entities have a draw method that emit primitives to be drawn according to a style.
+
+
+## Point
 
 A `Point` is a position in space with an associated orthogonal reference frame
 ("local frame").  A point can contain a `.body` which is dictionary of entities
 expressed in the local frame.
 
+### Initialization
 
+```
 p=Point()
 p=Point(point)
 p=Point(matrix4by4)
-p=Point(position, orientation, scaling) matrix, quat, rotvec, euler
-p=Point(x,y,z, ....
-
-
-
-p=Point(x=1,y=2,z=3)
-p=Point(1,2,3)
-p=Point(position=[1,2,3],orientation=[30,50,60],scaling=[.5,.5,.5]) 
-p=Point([1,2,3],[30,50,60],[.5,.5,.5])
-p=Point(position=[1,2,3],orientation=[30,60,50])
-p=Point(position=[1,2],rotation=[30]) # 2D
-
-a+b = a.move(b,inplace=False,local=False) 
-a*b = a.rotate(b,inplace=False,local=False)
-a@b = a.transform(b,inplace=False,local=False)
-a%b = a.scale(b,inplace=False,local=False)
-
-a.move(point,angle=None,tilt=None,local=True,inplace=True) # move the point by b
-a.rotate(rotation,center=c,inplace=False,local=False) # rotate the point about center by b
-a.lookat(point,axis='z',inplace=False,local=False) # change the orientation such that axis points to b
-
-
-
-moveto  (stra)
-moveby
-translate 
-scaleby
-scaleto
-rotateby
-rotateto
-
-
-
-API:
-
-```
-position=,rotation=,scaling=,label=,
-matrix=,
-x=,y=,z=,rotx,roty,rotz=,scx=,scy=,scz=
-
-
-
-p=Point()
-
-p.moveto(position=,point=,x=,y=,z=)
-p.moveby(positino=,point=,x=,y=,z=,angle=,tilt=)
-p.arcto(position=None,radius=,tilt=)
-p.splineto() ....
-p.alignto(point)
-
-
-p.body={'n':Point([0,0,5]), 's':Point([0,0,-5])}
-p['n'] # transformed Point
-
-p.reframe() #change body and point while keeping transformed positions
+p=Point([1,2,3])
 ```
 
-Path
-------------------------
+### Inspection
 
-A `Path` is a list of segments. Same API of points.
-
-API:
 ```
-pa=Path()
-pa.moveto()
-pa.arcto()
+p.x, p.y, p.z,  p.location
+p.rx, p.ry, p.rz,
+p.dx, p.dy. p.dz 
+p.rotation, p.rotation_euler, p.rotation_matrix, p.rotation_axis_angle, p.rotation_quat
+p.scaling, p.scx, p.scy, p.scz
+```
 
-pa.at(s) # get a point
-pa@s # get a point
-pa.intersection(other) # get intersections
-pa * other # get intersections
+### Translation
+```python
+# new point 
+p.translate(x,y,z)
+p.translate(x,y,z,local=True)
+p+Point([x,y,z])
+p+[x,y,z]
+
+# in place
+p.location=[1,2,3]  ## p.translate(x,y,z,local=False,inplace=True)
+p.location+=[1,2,3] ## p.translate(p.x+x,p.y+y,p.z+z,local=False,inplace=True)
+p.location+=1*p.dx+2+p.dy ## p.translate(x,y,z,local=False,inplace=True)
 ```
 
 
-Beamline
-------------------------------
+### Rotation
 
-Beamline specifies a path
+```python
+# new point
+p.rotate(rotation)
+p.rotate_euler(rx,ry,rz,degree,seq)
+p.rotate_axis_angle(axis,angle,degree)
+p.rotate_quat(quaternion)
+p*point
+p*matrix
+
+# in place
+p.rotation=matrix
+p.rotation*=matrix
+p.rotation_euler=[rx,ry,rz]
+p.rotation_euler+=[rx,ry,rz]
+p.rotation_axis_angle=[ax,ay,az,angle]
+#p.rotation_axis_angle+=[ax,ay,az,angle] does not make sense
+p.rotation_quat(quaternion)
+```
+
+### Scaling
+```python
+# new point
+p.scale(scaling, local=True, inplace)
+p%=scaling
+```
+
+### Transformation
+```python
+p.transform(point)
+p.transform(matrix)
+p@point
+
+```
+
+### ARc transformations and curves
+```python
+p.arc_by(dx,dy,dz,angle,axis,tilt)
+p.arc_to(x,y,z,bigflag)
+p.arc_radius(radius,angle)
+```
+
+
+## Curve
+Curve specify a path in space from a list of segments
+
+
+
+
+## Beamline
+Beamline specifies a path relative segments
 
 API:
 ```
@@ -114,14 +116,11 @@ lhc[label] get point
 lhc.center(label,point) # Point(matrix=lhc[label].matrix.inv(),body=lhc)
 ```
 
+## Primitives and Canvas
 
+Canvas can draw points and other entities
 
-Spatial Primitives
---------------------------------------------------------------------------
-Spation primitives are special parts.
-Spatial primitives describe object of space like regions, fields etcc
-Spatial primitives can be rigidily moved.
-Spatial primitives can be transformed into drawing primitives in 2D or 3D Spaces
+Primitives are special entities that can be drawn by a canvas 
 
 
 Backends
@@ -149,8 +148,25 @@ selector `.<class_name>` , `#label`
 Canvas:
 ----------------------------
 
+A canvas contains parts to be drawns.
+
+Artists[part]=set of artists
+For each parts in the model frame
+    primitives=part.get_primitives(view,frame)
+    for primitive in part.get_primitives(view,frame)
+        get_artists(primitives)
+
+
+canvas draw:
+   for part in self.parts:
+      primitives=part.get_primitives(transformation,style)  # 3d view frame
+      draw_primitive 
+
+transform in the view space, project in x,y
+
+
 A canvas defines how spatial primitives in a 3D euclidean space transform in drawing primitives.
-Geometrical primitives are Polylines, Point, Text, Meshes of some sort [perhaps more???]
+Geometrical primitives are Polylines, Point, Text, Meshes
 There are Canvas2D which can use different projections and canvas3D that defines only scaling and axis.
 
 
