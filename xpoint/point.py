@@ -15,7 +15,7 @@ def is_array_like(obj, shapes: Iterable[int]):
         obj = np.array(obj)
         assert obj.shape in shapes
         return obj
-    except ValueError:
+    except (AssertionError, ValueError):
         return False
 
 
@@ -25,49 +25,46 @@ class Point:
     def __init__(
         self,
         x_or_position_or_matrix_or_point=None,
-        y_or_orientation=None,
+        y_or_rotation=None,
         z_or_scaling=None,
-        roty=None,
-        rotx=None,
-        rotz=None,
-        seq="zxy",
-        scx=None,
-        scy=None,
-        scz=None,
+        rotz=0,
+        rotx=0,
+        roty=0,
+        scx=1,
+        scy=1,
+        scz=1,
         name=None,
         body=None,
         style=None,
+        seq="zxy",
         degrees=True,
     ):
         self.matrix = np.eye(4)
         self.style = style
         self.name = name
         self.body = body
-        if isinstance(x_or_position_or_matrix_or_point, Point):
+        if x_or_position_or_matrix_or_point is None:
+            return
+        # one arg definition: Point, matrix 3x3 or 4x4
+        elif isinstance(x_or_position_or_matrix_or_point, Point):
             self.set_matrix(x_or_position_or_matrix_or_point.matrix)
         elif matrix := is_array_like(
-            x_or_position_or_matrix_or_point, ((4, 4), (3, 3))
+                x_or_position_or_matrix_or_point, ((4, 4), (3, 3))
         ):
             self.set_matrix(matrix, style=style, name=name, body=body)
-        elif position := is_array_like(
-            x_or_position_or_matrix_or_point, ((3,), (2,), (1,))
-        ):
-            self.set_position(x_or_position_or_matrix_or_point)
-            self.set_rotation(y_or_orientation, degrees=degrees, seq=seq)
-            self.apply_scaling(z_or_scaling)
-        else:
-            self.set_xyz(
-                x=x_or_position_or_matrix_or_point,
-                y=y_or_orientation,
-                z=z_or_scaling,
-                roty=roty,
-                rotx=rotx,
-                rotz=rotz,
-                seq=seq,
-                scx=scx,
-                scy=scy,
-                scz=scz,
-            )
+        else:  # (position, rotation, scaling)
+            if position := is_array_like(
+                x_or_position_or_matrix_or_point, ((3,), (2,), (1,))
+            ):
+                self.position = position
+            if rotation := is_array_like(y_or_rotation, ((3,), (2,), (1,))):
+                self.set_rotation(rotation, degrees=degrees, seq=seq)
+            else:
+                self.set_rotation((rotx, roty, rotz), degrees=degrees, seq=seq)
+            if scaling := is_array_like(z_or_scaling, ((3,), (2,), (1,))):
+                self.scaling = scaling
+            else:
+                self.scaling = (scx, scy, scz)
 
     def set_matrix(self, matrix=None):
         """Create a point from a 4x4 matrix"""
@@ -84,28 +81,30 @@ class Point:
         else:
             raise ValueError("matrix must be 4x4 or 3x3")
 
-    def set_position(self, position=None):
-        """Set position"""
-        if position is not None:
-            try:
-                position = np.array(position)
-                assert len(position) <= 3
-            except ValueError:
-                raise ValueError("position must be 3x1 array or list")
-
-        self.matrix[3, len(position) :] = position
-
-    def set_rotation(self, rotation=None, degrees=True, seq="zxy"):
-        """Set rotation"""
-        if rotation is not None:
+    def set_rotation(self, rotation=None, rotx=0, roty=0, rotz=0, degrees=True, seq="zxy"):
+        """Set rotation from Rotation, 3x3 matrix, euler angles or quaternion"""
+        if rotation is None:
+            rotmat = Rotation.from_euler(
+                seq, (rotx, roty, rotz), degrees=degrees
+            ).as_matrix()
+        elif isinstance(rotation, Rotation):
+            rotmat = rotation.as_matrix()
+        elif rotation is not None:  # try to use array
             try:
                 rotation = np.array(rotation)
-                assert len(rotation) <= 3
             except ValueError:
-                raise ValueError("rotation must be 3x1 array or list")
-        self.matrix[:3, :3] = Rotation.from_euler(
-            seq, rotation, degrees=degrees
-        ).as_matrix()
+                raise ValueError("rotation must Rotation, 3x1 or 4x1 array")
+            if rotation.shape == (3, 3):
+                self.matrix[:3, :3] = rotation
+            elif rotation.shape == (4,):
+                self.matrix[:3, :3] = Rotation.from_quat(rotation).as_matrix()
+            else:
+                self.matrix[:3, :3] = Rotation.from_euler(
+                    seq, rotation, degrees=degrees
+                ).as_matrix()
+        else:
+            raise ValueError("rotation must be Rotation, 3x1 or 4x1 array")
+        self.matrix[:3, :3] = rotmat
 
     def apply_scaling(self, scaling):
         """Apply scaling to point"""
@@ -142,6 +141,10 @@ class Point:
     @property
     def position(self):
         return self.matrix[3, :3]
+
+    @position.setter
+    def set_position(self, value):
+        self.matrix[3, :len(value)] = value
 
     @property
     def x(self):

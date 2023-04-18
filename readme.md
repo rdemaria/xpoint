@@ -21,9 +21,17 @@ expressed in the local frame.
 
 
 p=Point()
+p=Point(point)
+p=Point(matrix4by4)
+p=Point(position, orientation, scaling) matrix, quat, rotvec, euler
+p=Point(x,y,z, ....
 
+
+
+p=Point(x=1,y=2,z=3)
 p=Point(1,2,3)
-p=Point(position=[1,2,3],orientation=[30,50,60],scaling=[.5,.5,.5])
+p=Point(position=[1,2,3],orientation=[30,50,60],scaling=[.5,.5,.5]) 
+p=Point([1,2,3],[30,50,60],[.5,.5,.5])
 p=Point(position=[1,2,3],orientation=[30,60,50])
 p=Point(position=[1,2],rotation=[30]) # 2D
 
