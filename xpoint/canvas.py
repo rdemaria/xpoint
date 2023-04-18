@@ -156,20 +156,20 @@ class CanvasMPL2D:
         self.figure.canvas.draw_idle()
 
     def draw_line(self, line, style):
-        x = [line.a.pose.position[0], line.b.pose.position[0]]
-        y = [line.a.pose.position[1], line.b.pose.position[1]]
+        x = [line.a.position[0], line.b.position[0]]
+        y = [line.a.position[1], line.b.position[1]]
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
 
     def draw_polyline(self, polyline, style):
-        x = [p.pose.position[0] for p in polyline.points]
-        y = [p.pose.position[1] for p in polyline.points]
+        x = [p.position[0] for p in polyline.points]
+        y = [p.position[1] for p in polyline.points]
         (art,) = self.ax.plot(x, y,picker=True, pickradius=3, **style)
         return [art]
 
     def draw_point(self, point, style):
-        x = [point.pose.position[0]]
-        y = [point.pose.position[1]]
+        x = [point.position[0]]
+        y = [point.position[1]]
         (art,) = self.ax.plot(x, y,picker=True, pickradius=3, **style)
         return [art]
 
