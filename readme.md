@@ -2,38 +2,38 @@
 
 ## Intro
 
-The library manages geometrical entities: Point, Line, ...
+The library manages geometrical entities: `Point`, `Line`, ...
 
-A Point defines location of space and a local reference frame.
-A Point can have parts defined in the local reference frame.
+A `Point` defines location of space and a local reference frame.
+A `Point` can have parts defined in the local reference frame.
 
 All entities derive from Point and can be moved, rotated, scaled.
 Some entities, called primitives, can be drawn by Canvas objects with a given style.
-Entities have a draw method that emit primitives to be drawn according to a style.
+Entities have a `draw()` method that emit primitives to be drawn according to a style.
 
 
 ## Point
 
-A `Point` is a position in space with an associated orthogonal reference frame
-("local frame").  A point can contain a `.body` which is dictionary of entities
-expressed in the local frame.
+A `Point` is a location in space with an associated set of orthogonal axis and scaling that defines the local reference frame.  A point contains a `.parts` dictionary of entities expressed in the local frame.
 
 ### Initialization
 
 ```
 p=Point()
 p=Point(point)
-p=Point(matrix4by4)
-p=Point([1,2,3])
+p=Point(matrix4x5)
+p=Point(location, rotation, scaling)
+p=Point(x,y,z,rx,ry,rz,sx,sy,sx)
+
 ```
 
 ### Inspection
 
 ```
-p.x, p.y, p.z,  p.location
-p.rx, p.ry, p.rz,
-p.dx, p.dy. p.dz 
-p.rotation, p.rotation_euler, p.rotation_matrix, p.rotation_axis_angle, p.rotation_quat
+(p.x, p.y, p.z) == p.location
+(p.rx, p.ry, p.rz) == p.rotation
+np.r_[p.dx, p.dy. p.dz] == p.rotation_matrix
+p.rotation_axis_angle, p.rotation_quat
 p.scaling, p.scx, p.scy, p.scz
 ```
 

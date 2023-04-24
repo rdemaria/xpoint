@@ -1,12 +1,12 @@
 from xpoint import Point
 
 ip=Point()
+l_mbxf=6.27
 
-mbxf_exit=ip.translate(z=-76)
-mbxf_exit=ip.translate(z=-76)
+mbxf_exit=ip.copy().moveto(z=-77.534+l_mbxf/2) # 3) moveto always inplace
 
-mbxf_entry=ip.arcby(dz=7.61,angle=1.4e-3,axis='y')
-rot_center=mbxf_exit.translate(z=1.2)
+mbxf_entry=ip.copy().arcby(dz=-7.61,angle=1.4e-3,axis='y')
+rot_center=mbxf_exit.copy().moveby(z=1.2)
 
 mbxf=Point(parts={'entry':mbxf_entry,'exit':mbxf_exit})
 

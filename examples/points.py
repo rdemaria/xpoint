@@ -21,4 +21,5 @@ Point(x=0, y=0, z=0, rotx=0, roty=0, rotz=0)
 Point(p)
 Point([1,2,3])
 Point(1,2,3)
-Point(p.matrix)
+Point(p._matrix)
+
