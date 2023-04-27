@@ -87,6 +87,11 @@ class Point:
 
     def __init__(self, *args, **kwargs):
         self._matrix = np.eye(4)
+        self.name = kwargs.get("name")
+        self.parts = kwargs.get("parts", {})
+        self.seq = kwargs.get("seq", "zxy")
+        self.degrees = kwargs.get("degrees", True)
+        self.style = kwargs.get("style")
         if len(args) == 0 and len(kwargs) == 0:
             pass
         elif len(args) == 1:  # matrix or location or x
@@ -95,74 +100,41 @@ class Point:
             elif is_iterable(args[0]):
                 self.location = args[0]
             else:
-                self.locatino = args
+                self.location = args
         elif len(args) == 2:  # location,roration or x,y
             if is_iterable(args[0]) and is_iterable(args[1]):
                 self.location = args[0]
-                self.rotation = args[1]
+                self.rotation_scipy = args[1]
             else:
                 self.location = args
         elif len(args) == 3:  # localtion,rotation,scaling or x,y,z
             if all(map(is_array_like, args)):
                 self.location = args[0]
-                self.rotation = args[1]
+                self.rotation_scipy = args[1]
                 self.scaling = args[2]
         elif len(args) > 3:
-            raise ValueError("Point takes at most 3 unnamed arguments")
+            raise ValueError(f"{self.__class__} takes at most 3 unnamed arguments")
         if len(kwargs) > 0:
-            self.style = kwargs.get("style")
-            self.name = kwargs.get("name")
-            self.parts = kwargs.get("parts")
-            self.seq = kwargs.get("seq", "zxy")
-            self.degrees = kwargs.get("degrees", True)
-            if len(args) == 0:  # x,y,z,rx,ry,rz,scx,scy,scz
-                if "matrix" in kwargs:
-                    self._matrix = kwargs["matrix"]
-                elif "point" in kwargs:
-                    self._matrix = kwargs["point"].matrix
-                else:
-                    if "location" in kwargs:
-                        self.position = kwargs["location"]
-                    else:
-                        self.position = (
-                            kwargs.get("x", 0),
-                            kwargs.get("y", 0),
-                            kwargs.get("z", 0),
-                        )
-                    if "rotation" in kwargs:
-                        self.rotation = kwargs["rotation"]
-                    else:
-                        self.rotation = (
-                            kwargs.get("rx", 0),
-                            kwargs.get("ry", 0),
-                            kwargs.get("rz", 0),
-                        )
-                    if "scaling" in kwargs:
-                        self.scaling = kwargs["scaling"]
-                    else:
-                        self.scaling = (
-                            kwargs.get("sx", 1),
-                            kwargs.get("sy", 1),
-                            kwargs.get("sz", 1),
-                        )
-        raise ValueError("Could not initialize Point")
+                for ll in ['point', 'matrix', 'location', 'rotation', 'scaling',
+                           'x',  'y',  'z',  'rx',  'ry',  'rz', 'sx',  'sy',  'sz']:
+                    if ll in kwargs:
+                             setattr(self, ll, kwargs[ll])
 
     # getters and setters
-
     @property
     def matrix(self):
         return self._matrix
-    
-    matrix.setter
+
+    @matrix.setter
     def matrix(self, value):
         self._matrix[:len(value),:len(value[1])] = value
 
     @property
-    def position(self):
+    def location(self):
         return self._matrix[3, :3]
 
-    @position.setter
-    def position(self, value):
+    @location.setter
+    def location(self, value):
         self._matrix[3, : len(value)] = value
 
     @property
@@ -190,76 +162,76 @@ class Point:
         self._matrix[3, 2] = value
 
     @property
-    def rotation(self):
+    def rotation_scipy(self):
         return Rotation.from_matrix(self._matrix[:3, :3])
 
     @property
-    def rotation_euler(self):
-        return self.rotation.as_euler(seq=self.seq, degrees=self.degrees)
+    def rotation(self):
+        return self.rotation_scipy.as_euler(seq=self.seq, degrees=self.degrees)
 
     @property
     def rotation_axis(self):
-        return self.rotation.as_rotvec()
+        return self.rotation_scipy.as_rotvec()
 
     @property
     def rotation_matrix(self):
-        return self.rotation.as_matrix()
+        return self.rotation_scipy.as_matrix()
 
     @property
     def rotation_quat(self):
-        return self.rotation.as_quat()
+        return self.rotation_scipy.as_quat()
 
     @property
-    def rotx(self):
+    def rx(self):
         return self.rotation[0]
 
-    @rotx.setter
-    def rotx(self, rotx):
+    @rx.setter
+    def rx(self, rx):
         self._matrix[:3, :3] = Rotation.from_euler(
             seq=self.seq,
-            angles=(rotx, self.roty, self.rotz),
+            angles=(rx, self.ry, self.rz),
             degrees=self.degrees,
         ).as_matrix()
 
     @property
-    def roty(self):
+    def ry(self):
         return self.rotation[1]
 
-    @roty.setter
-    def roty(self, roty):
+    @ry.setter
+    def ry(self, ry):
         self._matrix[:3, :3] = Rotation.from_euler(
             seq=self.seq,
-            angles=(self.rotx, roty, self.rotz),
+            angles=(self.rx, ry, self.rz),
             degrees=self.degrees,
         ).as_matrix()
 
     @property
-    def rotz(self):
+    def rz(self):
         return self.rotation[2]
 
-    @rotz.setter
-    def rotz(self, rotz):
+    @rz.setter
+    def rz(self, rz):
         self._matrix[:3, :3] = Rotation.from_euler(
             seq=self.seq,
-            angles=(self.rotx, self.roty, rotz),
+            angles=(self.rx, self.ry, rz),
             degrees=self.degrees,
         ).as_matrix()
 
     @property
-    def scx(self):
+    def sx(self):
         return np.linalg.norm(self._matrix[:3, 0])
 
     @property
-    def scy(self):
+    def sy(self):
         return np.linalg.norm(self._matrix[:3, 1])
 
     @property
-    def scz(self):
+    def sz(self):
         return np.linalg.norm(self._matrix[:3, 2])
 
     @property
     def scaling(self):
-        return np.array([self.scx, self.scy, self.scz])
+        return np.array([self.sx, self.sy, self.sz])
 
 
     # generic methods
@@ -270,33 +242,121 @@ class Point:
         )
 
     def __repr__(self):
-        return f"Point({self.position}, {self.rotation_euler}, {self.scaling})"
+        out=[]
+        for ll in 'x y z rx ry rz'.split():
+            val=getattr(self,ll)
+            if val!=0:
+                out.append(f"{ll}={val:.15g}")
+        for ll in  'sx sy sz'.split():
+            val=getattr(self,ll)
+            if abs(val-1)>1e-15:
+                out.append(f"{ll}={val}")
+        args=",".join(out)
+        return f"Point({args})"
+
+    # Operators to be confirmed
+
+
+    def __add__(self, other):
+        """Return lhs translated by rhs"""
+        if isinstance(other, Point):
+            return self.translate(other.location, inplace=False)
+        else:
+            return self.translate(other, inplace=False)
+
+    def __mul__(self, other):
+        """Return lhs rotate by rhs"""
+        if isinstance(other, Point):
+            return self.rotate(other.rotation_scipy, inplace=False)
+        else:
+            return self.rotate(other, inplace=False)
+
+    def __sub__(self, other):
+        """Return lhs translated by -rhs"""
+        if isinstance(other, Point):
+            return self.translate(-other.location, inplace=False)
+        else:
+            return self.translate(-other, inplace=False)
+
+    def __truediv__(self, other):
+        """Return lhs rotate by inv(rhs)"""
+        if isinstance(other, Point):
+            return self.rotate(-other.rotation_scipy, inplace=False)
+        else:
+            return self.rotate(-other, inplace=False)
+
+    def __iadd__(self, other):
+        """Translate lhs by rhs"""
+        if isinstance(other, Point):
+            return self.translate(other.location, inplace=True)
+        else:
+            return self.translate(other, inplace=True)
+
+    def __imul__(self, other):
+        """Rotate lhs by rhs"""
+        if isinstance(other, Point):
+            return self.rotate(other.rotation_scipy, inplace=True)
+        else:
+            return self.rotate(other, inplace=True)
+
+    def __isub__(self, other):
+        """Translate lhs by -rhs"""
+        if isinstance(other, Point):
+            return self.translate(-other.location, inplace=True)
+        else:
+            return self.translate(-other, inplace=True)
+
+    def __itruediv__(self, other):
+        """Rotate lhs by inv(rhs)"""
+        if isinstance(other, Point):
+            return self.rotate(-other.rotation_scipy, inplace=True)
+        else:
+            return self.rotate(-other, inplace=True)
+
+    def __neg__(self):
+        """Return inverse of point"""
+        return Point(-self.location, -self.rotation_scipy)
+
+    def __pos__(self):
+        """Return copy of point"""
+        return Point(self.location, self.rotation_scipy)
+
+
+
+    def __eq__(self, other):
+        return (self.location == other.location) and (
+            self.rotation_scipy == other.rotation
+        )
+
+    def __ne__(self, other):
+        return not self == other
+
 
 
     # transformations
 
-    def translate(self, x_or_position=0, y=0, z=0, local=True, inplace=False, relative=True):
-        if is_iterable(x_or_position):
-            position = np.array(position)
+    def translate(self, x_or_location=0, y=0, z=0, local=True, inplace=False, relative=True):
+        if is_iterable(x_or_location):
+            location = np.array(location)
         else:
-            position = np.array([x_or_position, y, z])
+            location = np.array([x_or_location, y, z])
         if inplace:
             point = self
         else:
             point = self.copy()
         if local:
-            position = self._matrix @ position
+            location = self._matrix @ location
         if relative:
-            point.position += position
+            point.location += location
         else:
-            point.position = position
+            point.location = location
         return point
 
-    def moveto(self, x_or_position=0, y=0, z=0):
-        if is_iterable(x_or_position):
-            self.position = np.array(x_or_position)
+    def moveto(self, x_or_location=0, y=0, z=0):
+        if is_iterable(x_or_location):
+            self.location = np.array(x_or_location)
         else:
-            self.position = np.array([x_or_position, y, z])
+            self.location = np.array([x_or_location, y, z])
         return self
 
     def moveby(self, dx_or_delta=0, dy=0, dz=0):
@@ -304,11 +364,11 @@ class Point:
             delta = np.array(dx_or_delta)
         else:
             delta = np.array([dx_or_delta, dy, dz])
-        self.position += self.rotation_matrix@delta
+        self.location += self.rotation_matrix@delta
         return self
 
     def rotate(self, axis, angle, degrees=True):
-        self.rotation *= Rotation.from_euler(axis, angle, degrees=degrees)
+        self.rotation_scipy *= Rotation.from_euler(axis, angle, degrees=degrees)
 
     def transform(self, other):
         self._matrix=other._matrix@self._matrix
@@ -330,23 +390,23 @@ class Point:
         if degrees:
             angle=np.deg2rad(angle)
         radius=length/angle*np.cross(axis,delta)
-        start=self.position+radius
+        start=self.location+radius
         rot=Rotation.from_euler(axis,angle,degrees=False)
-        self.position=rot@start-radius
-        self.rotation=rot*self.rotation
+        self.location=rot@start-radius
+        self.rotation_scipy=rot*self.rotation_scipy
         return self
 
-    def lookat(self, x_or_position=0, y=0, z=0,axis='z'):
-        """Rotate the point such that axis points to the given position"""
-        if is_iterable(x_or_position):
-            position = np.array(position)
+    def lookat(self, x_or_location=0, y=0, z=0,axis='z'):
+        """Rotate the point such that axis points to the given location"""
+        if is_iterable(x_or_location):
+            location = np.array(location)
         else:
-            position = np.array([x_or_position, y, z])
+            location = np.array([x_or_location, y, z])
         if axis in 'xyz':
             axis=getattr(self,'d'+axis)
         else:
             axis=np.array(axis)
-        self.rotation=Rotation.from_rotvec(axis)*Rotation.from_rotvec(position-self.position)
+        self.rotation_scipy=Rotation.from_rotvec(axis)*Rotation.from_rotvec(location-self.location)
         return self
 
 
@@ -358,7 +418,10 @@ class Point:
         return self.parts[key].transform(self._matrix)
     
     def __getattr__(self, key):
-        return self[key]
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(f"Point has no attribute {key}")
 
     def __setitem__(self, key, value):
         self.parts[key] = value.transform(np.linalg.inv(self._matrix))
@@ -375,6 +438,9 @@ class Point:
     def __delitem__(self, key):
         del self.parts[key]
 
+    def __hash__(self):
+        return hash(id(self))
+
     def keys(self):
         return self.parts.keys()
 
@@ -386,11 +452,11 @@ class Point:
 
     # Drawing interface
 
-    def draw2d(self, projection="xy", canvas=None):
+    def draw2d(self, projection="xy", style=None, canvas=None):
         if canvas is None:
             from .canvas import Canvas2DMPL  as Canvas2D
-            canvas=Canvas2D(projection=projection)
-        canvas.add(self)
+            canvas=Canvas2D(axes=projection)
+        canvas.add(self, style=style)
         canvas.draw()
         return canvas
 
@@ -402,95 +468,23 @@ class Point:
         canvas.draw()
         return canvas
 
-    def get_primitives(self, style):
-        style = apply_style(self, style)
+    def get_primitives(self, style=None, parent=None):
+        """
+        Return a list of (primitive, style, parent) to be drawn.
+        """
+        if parent is None:
+            parent = self
+        if style is None:
+            style=self.style
+        if style is None:
+            style={}
         out = []
-        if style.get("draw_subparts", True) == True:
+        if len(self.parts)==0 or style.get("draw_locations",False):
+             out.append((self, style, parent))
+        if style.get("draw_parts", True):
             for k, part in self.parts.items():
-                out += part.get_primitives(style)
-        if style.get("draw_location", False) == True:
-            out.append((Point(self.location), style, self))
+                out += part.get_primitives(style, parent)
         return out
 
 
 
-    # Operators to be confirmed
-
-
-    def __add__(self, other):
-        """Return lhs translated by rhs"""
-        if isinstance(other, Point):
-            return self.translate(other.position, inplace=False)
-        else:
-            return self.translate(other, inplace=False)
-
-    def __mul__(self, other):
-        """Return lhs rotate by rhs"""
-        if isinstance(other, Point):
-            return self.rotate(other.rotation, inplace=False)
-        else:
-            return self.rotate(other, inplace=False)
-
-    def __sub__(self, other):
-        """Return lhs translated by -rhs"""
-        if isinstance(other, Point):
-            return self.translate(-other.position, inplace=False)
-        else:
-            return self.translate(-other, inplace=False)
-
-    def __truediv__(self, other):
-        """Return lhs rotate by inv(rhs)"""
-        if isinstance(other, Point):
-            return self.rotate(-other.rotation, inplace=False)
-        else:
-            return self.rotate(-other, inplace=False)
-
-    def __iadd__(self, other):
-        """Translate lhs by rhs"""
-        if isinstance(other, Point):
-            return self.translate(other.position, inplace=True)
-        else:
-            return self.translate(other, inplace=True)
-
-    def __imul__(self, other):
-        """Rotate lhs by rhs"""
-        if isinstance(other, Point):
-            return self.rotate(other.rotation, inplace=True)
-        else:
-            return self.rotate(other, inplace=True)
-
-    def __isub__(self, other):
-        """Translate lhs by -rhs"""
-        if isinstance(other, Point):
-            return self.translate(-other.position, inplace=True)
-        else:
-            return self.translate(-other, inplace=True)
-
-    def __itruediv__(self, other):
-        """Rotate lhs by inv(rhs)"""
-        if isinstance(other, Point):
-            return self.rotate(-other.rotation, inplace=True)
-        else:
-            return self.rotate(-other, inplace=True)
-
-    def __neg__(self):
-        """Return inverse of point"""
-        return Point(-self.position, -self.rotation)
-
-    def __pos__(self):
-        """Return copy of point"""
-        return Point(self.position, self.rotation)
-
-    def __repr__(self):
-        return "Point({}, {})".format(self.position, self.rotation)
-
-    def __str__(self):
-        return "Point({}, {})".format(self.position, self.rotation)
-
-    def __eq__(self, other):
-        return (self.position == other.position) and (
-            self.rotation == other.rotation
-        )
-
-    def __ne__(self, other):
-        return not self == other

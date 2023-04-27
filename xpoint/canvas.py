@@ -9,17 +9,11 @@ from .point import Point
 from .style import apply_style
 
 
-defaultstyle = {
-    ".Point": {"marker": "o", "color": "k", "markersize": 5},
-    ".Line": {"color": "k"},
-    ".PolyLine": {"color": "k"},
-    ".Text": {"color": "k", "fontsize": 10},
-}
 
 
-class Projection:
-    @classmethod
-    def orthographic(cls, left, right, bottom, top, near, far):
+
+class OrthoProjection:
+    def __init__(self, left, right, bottom, top, near, far):
         """
         Compute the 2D projection matrix for an orthographic projection.
 
@@ -43,9 +37,18 @@ class Projection:
         matrix[0, 3] = -(right + left) / (right - left)
         matrix[1, 3] = -(top + bottom) / (top - bottom)
         matrix[2, 3] = -(far + near) / (far - near)
-        return cls(matrix)
+        self.matrix=matrix
 
-    def perspective(cls, fov_y, aspect_ratio, near, far):
+    def __call__(self, coords):
+        ones = np.ones((coords.shape[0], 1))
+        points_h = np.hstack((coords, ones))
+        points_p = self.matrix @ points_h.T
+        points_p /= points_p[3]
+        return points_p[:2].T
+
+
+class PerspectiveProjection:
+    def __init__(self, fov_y, aspect_ratio, near, far):
         """
         Compute the 2D projection matrix for a perspective projection.
 
@@ -69,10 +72,8 @@ class Projection:
         matrix[2, 2] = -(far + near) / (far - near)
         matrix[2, 3] = -2.0 * far * near / (far - near)
         matrix[3, 2] = -1.0
-        return cls(matrix)
+        self.matrix=matrix
 
-    def __init__(self, matrix):
-        self.matrix = matrix
 
     def __call__(self, coords):
         ones = np.ones((coords.shape[0], 1))
@@ -80,53 +81,56 @@ class Projection:
         points_p = self.matrix @ points_h.T
         points_p /= points_p[3]
         return points_p[:2].T
+    
 
 
-class SimpleProjection:
-    @classmethod
-    def from_string(cls, origin=(0, 0, 0), projection="xy", scaling=1):
-        matrix = np.zeros((2, 3), dtype=np.float64)
-        if len(projection) == 2:
-            if isinstance(scaling, (int, float)):
-                sx, sy =scaling, scaling
+class Projection:
+    def __init__(self,origin=(0, 0, 0), axes="xy", scaling=1, angles=None):
+        self.origin = np.array(origin)
+        self.axes = axes
+        self.scaling=scaling
+        self.angles=angles
+        self.update()
+
+    def update(self):
+        self.matrix = np.zeros((2, 3), dtype=np.float64)
+        if np.isscalar(self.scaling):
+            if len(self.axes)==2:
+               self.scaling = (self.scaling, self.scaling,0)
             else:
-               sx, sy = scaling
-            a1,a2=[(0,90).index(a) for a in projection]
-            return cls.from_angles_scaling(origin=origin,angles=(a1,a2,0),scaling=(sx,sy,0))
-            matrix[0, i1] = sx
-            matrix[1, i2] = sy
-        elif len(projection) == 3:
-            angles=[(0,120,240).index(a) for a in projection]
-            return cls.from_angles_scaling(origin=origin,angles=(a1,a2,0),scaling=scaling)
-
-        return cls(origin, matrix)
-
-    @classmethod
-    def from_angles_scaling(cls, origin=(0, 0, 0), angles=(0, 120, 240), scaling=1):
-        rx, ry, rz = np.radians(angles)
-        if isinstance(scaling, (int, float)):
-            sx, sy, sz = (scaling, scaling, scaling)
-        else:
-            sx, sy, sz = np.array(scaling)
-        matrix = np.array(
-            [
-                [sx * np.cos(rx), sy * np.cos(ry), sz * np.cos(rz)]
-                [sx * np.sin(rx), sy * np.sin(ry), sz * np.sin(rz)],
-            ]
-        )
-
-    def __init__(self, origin, projection):
-        self.origin = origin
-        self.projection = projection
+               self.scaling = (self.scaling, self.scaling, self.scaling)
+        if self.angles is None:
+            if len(self.axes)==2:
+                angles=(0,90,0)
+            else:
+                angles=(0,120,240)
+        angles = np.radians(angles)
+        for ai,ax in enumerate(self.axes):
+            if ax not in "xyz":
+                raise ValueError(f"Invalid axis {ax}")
+            ii = "xyz".index(ax)
+            self.matrix[0, ii] = self.scaling[0]*np.cos(angles[0])
+            self.matrix[0, ii] = self.scaling[0]*np.sin(angles[0])
 
     def __call__(self, coords):
-        return self.projection @ (coords - self.origin)
+        return self.matrix @ (coords - self.origin).T
+    
+    def __repr__(self) -> str:
+        return f"Projection(origin={self.origin}, axes={self.axes}, scaling={self.scaling}, angles={self.angles})"
+
+
 
 
 class Canvas2DMPL:
+    defaultstyle = {
+    ".Point": {"marker": "o", "color": "k", "markersize": 5},
+    ".Line": {"color": "k"},
+    ".PolyLine": {"color": "k"},
+    ".Text": {"color": "k", "fontsize": 10}, 
+    }
     def __init__(
         self,
-        projection="xy",
+        axes="xy",
         scaling=1,
         origin=(0, 0, 0),
         xlabel="x [m]",
@@ -134,25 +138,16 @@ class Canvas2DMPL:
         title="",
         style=None,
     ):
-
-        self.update_projection(projection=projection, scaling=scaling, origin=origin)
+        self.projection=Projection(origin=origin,axes=axes,scaling=scaling)
         self.origin = origin
         self.parts = {}  # stores parts and style
         self.artists = {}  # stores artists and reference to part
         if style is None:
-            self.style = defaultstyle
+            self.style = self.__class__.defaultstyle
         self.initialize(xlabel, ylabel, title)
 
-    def update_projection(self,projection='xy',scaling=1,origin=(0,0,0)):
-        if isinstance(projection, str):
-            self._projection = SimpleProjection.from_string(
-                origin=origin, projection=projection, scaling=scaling
-            )
-        else:
-            self.projection = projection
-
     def project(self, point):
-        return point[self.projection]
+        return self.projection(point)
 
     def initialize(self, xlabel, ylabel, title):
         self.xlabel = xlabel
@@ -183,19 +178,25 @@ class Canvas2DMPL:
         del self.artists[part]
 
     def draw(self, style=None):
+        """
+        Draw parts according to style.
+
+        Priority of styles is:
+        - style given to draw
+        - style given when part was added
+        - style of the part
+        - style of the primitive given by the parent part
+        - style of the primitive
+        - style given when canvas was initialized
+        """
         self.clear()
         for part, partstyle in self.parts.items():
-            for prim, primstyle, ref in part.get_primitives(style):
-                localstyle = self.style.copy()
-                if primstyle is not None:
-                    localstyle.update(primstyle)
-                if partstyle is not None:
-                    localstyle.update(partstyle)
-                if style is not None:
-                    localstyle.update(style)
-                print(localstyle, style)
-                localstyle = apply_style(prim, localstyle)
-                print(localstyle)
+            for prim, primstyle, ref in part.get_primitives(partstyle):
+                localstyle=self.style.copy()
+                for st in prim.style, primstyle, part.style, partstyle, style:
+                    if st is not None:
+                        localstyle.update(st)
+                style=apply_style(self, localstyle) # now style is pure
                 draw_func = getattr(
                     self, "draw_" + prim.__class__.__name__.lower()
                 )
@@ -211,24 +212,27 @@ class Canvas2DMPL:
         self.ax.set_ylabel(self.ylabel)
         self.figure.show()
         self.figure.canvas.draw_idle()
+        return self
+
+    def draw_point(self, point, style):
+        x,y = self.project(point.location)
+        (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
+        return [art]
+
 
     def draw_line(self, line, style):
-        x = [line.a.position[0], line.b.position[0]]
-        y = [line.a.position[1], line.b.position[1]]
+        x = [line.a.location[0], line.b.location[0]]
+        y = [line.a.location[1], line.b.location[1]]
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
 
     def draw_polyline(self, polyline, style):
-        x = [p.position[0] for p in polyline.points]
-        y = [p.position[1] for p in polyline.points]
+        x = [p.location[0] for p in polyline.points]
+        y = [p.location[1] for p in polyline.points]
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
 
-    def draw_point(self, point, style):
-        x = [point.position[0]]
-        y = [point.position[1]]
-        (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
-        return [art]
+
 
     def on_motion_notify(self, event):
         if event.inaxes == self.ax:
@@ -273,4 +277,3 @@ class Canvas3D:
         self.initialize(xlabel, ylabel, zlabel, title)
         self.primitives = {}
         self.artists = {}
-        self.style = defaultstyle

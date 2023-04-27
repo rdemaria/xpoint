@@ -59,18 +59,17 @@ def apply_style(primitive, style):
     * ``dash_joinstyle``: The join style of the dash
     * ``solid_joinstyle``: The join style of the solid
     """
-
-    outstyle={}
+    result={}
     if style is not None:
         for k, v in style.items():
             if isinstance(v, dict): # k is a selector
                 kdata=k[1:]
                 if k[0]=='.' and primitive.__class__.__name__==kdata:
-                        outstyle.update(v)
+                        result.update(apply_style(v))
                 elif k[0]=='#' and primitive.name==kdata:
-                        outstyle.update(v)
+                        result.update(apply_style(v))
                 elif k[0]=='~' and isinstance(primitive.name,str) and re.match(kdata,primitive.name):
-                        outstyle.update(v)
+                        result.update(apply_style(v))
             else:
-                outstyle[k]=v
-    return outstyle
+                result[k]=v
+    return result
