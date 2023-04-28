@@ -331,6 +331,18 @@ class Point:
     def __ne__(self, other):
         return not self == other
 
+    # Part management
+
+    def add_part(self, name, part):
+        self.parts[name] = part
+        part.parent = self
+
+    def remove_part(self, name):
+        self.parts[name].parent = None
+        del self.parts[name]
+
+    def iter_part(self):
+        return self.parts.keys()
 
 
     # transformations
@@ -423,8 +435,9 @@ class Point:
         except KeyError:
             raise AttributeError(f"Point has no attribute {key}")
 
-    def __setitem__(self, key, value):
-        self.parts[key] = value.transform(np.linalg.inv(self._matrix))
+    def __setitem__(self, name, part):
+        localpart=part.transform(np.linalg.inv(self._matrix))
+        self.add(name,localpart)
 
     def __iter__(self):
         return iter(self.parts)
