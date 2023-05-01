@@ -1,15 +1,69 @@
-from re import S
-from tkinter import E
-from turtle import st
+import re
+
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from .point import Point
-from .style import apply_style
 
 
+def apply_style(primitive, style):
+    """Apply style to primitive.
 
+    The style is a dictionary of style properties. If a value is a dictions, the key is interpreted as selector.
+     
+    A selector is a string that optionally starts with a character that determines the type of selector,
+      followed by a string that is used to match the selector. The following selectors are supported:
+
+    * ``: Match the class name of primitive
+    * `.`: Match the layer name of the primitive
+    * `#`: Match the name of the primitive
+    * `~`: Match the name of the primitive using a regular expression
+
+    The following style properties are supported:
+
+    * ``color``: The color of the primitive
+    * ``linewidth``: The width of the line
+    * ``linestyle``: The style of the line
+    * ``marker``: The marker of the primitive
+    * ``markersize``: The size of the marker
+    * ``alpha``: The transparency of the primitive
+    * ``label``: The label of the primitive
+    * ``visible``: Whether the primitive is visible
+    * ``zorder``: The z-order of the primitive
+    * ``facecolor``: The face color of the primitive
+    * ``edgecolor``: The edge color of the primitive
+    * ``facealpha``: The face transparency of the primitive
+    * ``edgealpha``: The edge transparency of the primitive
+    * ``hatch``: The hatch of the primitive
+    * ``fill``: Whether the primitive is filled
+    * ``capstyle``: The cap style of the primitive
+    * ``joinstyle``: The join style of the primitive
+    * ``antialiased``: Whether the primitive is antialiased
+    * ``dash_capstyle``: The cap style of the dash
+    * ``solid_capstyle``: The cap style of the solid
+    * ``dash_joinstyle``: The join style of the dash
+    * ``solid_joinstyle``: The join style of the solid
+    """
+    result = {}
+    if style is not None:
+        for k, v in style.items():
+            if isinstance(v, dict):  # k is a selector
+                if k[0] == "." and primitive.layer == k[1:]:
+                    result.update(v)
+                elif k[0] == "#" and primitive.name == k[1:]:
+                    result.update(v)
+                elif (
+                    k[0] == "~"
+                    and isinstance(primitive.name, str)
+                    and re.match(k[1:], primitive.name)
+                ):
+                    result.update(v)
+                elif primitive.__class__.__name__ == k:
+                    result.update(v)
+            else:
+                result[k] = v
+    return result
 
 
 class OrthoProjection:
@@ -37,7 +91,7 @@ class OrthoProjection:
         matrix[0, 3] = -(right + left) / (right - left)
         matrix[1, 3] = -(top + bottom) / (top - bottom)
         matrix[2, 3] = -(far + near) / (far - near)
-        self.matrix=matrix
+        self.matrix = matrix
 
     def __call__(self, coords):
         ones = np.ones((coords.shape[0], 1))
@@ -72,8 +126,7 @@ class PerspectiveProjection:
         matrix[2, 2] = -(far + near) / (far - near)
         matrix[2, 3] = -2.0 * far * near / (far - near)
         matrix[3, 2] = -1.0
-        self.matrix=matrix
-
+        self.matrix = matrix
 
     def __call__(self, coords):
         ones = np.ones((coords.shape[0], 1))
@@ -81,64 +134,85 @@ class PerspectiveProjection:
         points_p = self.matrix @ points_h.T
         points_p /= points_p[3]
         return points_p[:2].T
-    
 
 
 class Projection:
-    def __init__(self,origin=(0, 0, 0), axes="xy", scaling=1, angles=None):
+    def __init__(self, origin=(0, 0, 0), axes="xy", scaling=1, angles=None):
         self.origin = np.array(origin)
         self.axes = axes
-        self.scaling=scaling
-        self.angles=angles
+        self.scaling = scaling
+        self.angles = angles
         self.update()
 
     def update(self):
         self.matrix = np.zeros((2, 3), dtype=np.float64)
         if np.isscalar(self.scaling):
-            if len(self.axes)==2:
-               self.scaling = (self.scaling, self.scaling,0)
+            if len(self.axes) == 2:
+                self.scaling = (self.scaling, self.scaling, 0)
             else:
-               self.scaling = (self.scaling, self.scaling, self.scaling)
+                self.scaling = (self.scaling, self.scaling, self.scaling)
         if self.angles is None:
-            if len(self.axes)==2:
-                angles=(0,90,0)
+            if len(self.axes) == 2:
+                angles = (0, 90, 0)
             else:
-                angles=(0,120,240)
+                angles = (0, 120, 240)
         angles = np.radians(angles)
-        for ai,ax in enumerate(self.axes):
+        for ai, ax in enumerate(self.axes):
             if ax not in "xyz":
                 raise ValueError(f"Invalid axis {ax}")
             ii = "xyz".index(ax)
-            self.matrix[0, ii] = self.scaling[0]*np.cos(angles[0])
-            self.matrix[0, ii] = self.scaling[0]*np.sin(angles[0])
+            self.matrix[0, ii] = self.scaling[ii] * np.cos(angles[ii])
+            self.matrix[1, ii] = self.scaling[ii] * np.sin(angles[ii])
 
     def __call__(self, coords):
         return self.matrix @ (coords - self.origin).T
-    
+
     def __repr__(self) -> str:
-        return f"Projection(origin={self.origin}, axes={self.axes}, scaling={self.scaling}, angles={self.angles})"
-
-
+        return f"Projection(origin={self.origin}, axes={self.axes!r}, scaling={self.scaling}, angles={self.angles})"
 
 
 class Canvas2DMPL:
-    defaultstyle = {
-    ".Point": {"marker": "o", "color": "k", "markersize": 5},
-    ".Line": {"color": "k"},
-    ".PolyLine": {"color": "k"},
-    ".Text": {"color": "k", "fontsize": 10}, 
+    style_keywords = {
+        "antialiased",
+        "color",
+        "dash_capstyle",
+        "dash_joinstyle",
+        "fillstyle",
+        "linestyle",
+        "linewidth",
+        "marker",
+        "markeredgecolor",
+        "markeredgewidth",
+        "markerfacecolor",
+        "markerfacecoloralt",
+        "markerpath",
+        "markersize",
+        "markevery",
+        "sketch_params",
+        "solid_capstyle",
+        "solid_joinstyle",
+        "visible",
+        "zorder",
     }
+
+    defaultstyle = {
+        "Point": {"marker": "o", "color": "k", "markersize": 5},
+        "Line": {"color": "k"},
+        "PolyLine": {"color": "k"},
+        "Text": {"color": "k", "fontsize": 10},
+    }
+
     def __init__(
         self,
         axes="xy",
         scaling=1,
         origin=(0, 0, 0),
-        xlabel="x [m]",
-        ylabel="y [m]",
+        xlabel="$x$ [m]",
+        ylabel="$y$ [m]",
         title="",
         style=None,
     ):
-        self.projection=Projection(origin=origin,axes=axes,scaling=scaling)
+        self.projection = Projection(origin=origin, axes=axes, scaling=scaling)
         self.origin = origin
         self.parts = {}  # stores parts and style
         self.artists = {}  # stores artists and reference to part
@@ -148,6 +222,13 @@ class Canvas2DMPL:
 
     def project(self, point):
         return self.projection(point)
+
+    def mpl_style_from_dict(self, style):
+        mpl_style = {}
+        for key in style:
+            if key in self.__class__.style_keywords:
+                mpl_style[key] = style[key]
+        return mpl_style
 
     def initialize(self, xlabel, ylabel, title):
         self.xlabel = xlabel
@@ -191,18 +272,18 @@ class Canvas2DMPL:
         """
         self.clear()
         for part, partstyle in self.parts.items():
-            for prim, primstyle, ref in part.get_primitives(partstyle):
-                localstyle=self.style.copy()
-                for st in prim.style, primstyle, part.style, partstyle, style:
+            for prim, primstyle in part.get_primitives(partstyle):
+                localstyle = self.style.copy()
+                for st in style, prim.style, primstyle:
                     if st is not None:
                         localstyle.update(st)
-                style=apply_style(self, localstyle) # now style is pure
-                draw_func = getattr(
-                    self, "draw_" + prim.__class__.__name__.lower()
-                )
-                artists = draw_func(prim, localstyle)
-                for art in artists:
-                    self.artists[art] = ref
+                localstyle = apply_style(prim, localstyle)  # resolve selectors
+                if localstyle.get("visible", True):
+                    fname = "draw_" + prim.__class__.__name__.lower()
+                    draw_func = getattr(self, fname)
+                    artists = draw_func(prim, localstyle)
+                    for art in artists:
+                        self.artists[art] = part
         self.annotation = self.ax.text(
             0, 0, "", bbox=dict(boxstyle="round", fc="w")
         )
@@ -215,24 +296,25 @@ class Canvas2DMPL:
         return self
 
     def draw_point(self, point, style):
-        x,y = self.project(point.location)
-        (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
+        x, y = self.project(point.location)
+        style = self.mpl_style_from_dict(style)
+        print(point.location, x,y,style)
+        (art,) = self.ax.plot([x], [y], picker=True, pickradius=3, **style)
         return [art]
-
 
     def draw_line(self, line, style):
         x = [line.a.location[0], line.b.location[0]]
         y = [line.a.location[1], line.b.location[1]]
+        style = self.mpl_style_from_dict(style)
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
 
     def draw_polyline(self, polyline, style):
         x = [p.location[0] for p in polyline.points]
         y = [p.location[1] for p in polyline.points]
+        style = self.mpl_style_from_dict(style)
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
-
-
 
     def on_motion_notify(self, event):
         if event.inaxes == self.ax:
@@ -261,6 +343,7 @@ class Canvas2DMPL:
 
     def clear(self):
         self.ax.clear()
+        self.artists.clear()
 
 
 class Canvas3D:
