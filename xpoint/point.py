@@ -13,7 +13,16 @@ from collections.abc import Iterable
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from .style import apply_style
+
+
+def xyz_to_array(x=0, y=0, z=0):
+    """Convert x, y, z to a 3-element array"""
+    if isinstance(x,Point):
+        return x.position
+    elif is_iterable(x):
+        return np.array(x)
+    else:
+        return np.array([x, y, z])
 
 
 def direction(a: np.ndarray, b: np.ndarray):
@@ -30,10 +39,9 @@ def is_array_like(obj, shapes: Iterable[int]):
     """Check if object is array like"""
     try:
         obj = np.array(obj)
-        assert obj.shape in shapes
-        return obj
+        return obj.shape in shapes
     except (AssertionError, ValueError):
-        return None
+        return False
 
 
 def has_shape(obj, shapes):
@@ -93,7 +101,8 @@ class Point:
         self.seq = kwargs.get("seq", "zxy")
         self.degrees = kwargs.get("degrees", True)
         self.style = kwargs.get("style")
-        if len(args) == 0 and len(kwargs) == 0:
+        self.layer = kwargs.get("layer")
+        if len(args) == 0:
             pass
         elif len(args) == 1:  # matrix or location or x
             if isinstance(args[0], Point):
@@ -104,7 +113,7 @@ class Point:
                 else:
                     self.location = args[0]
             else:
-                self.location = args
+                self.location = args,
         elif len(args) == 2:  # location,roration or x,y
             if is_iterable(args[0]) and is_iterable(args[1]):
                 self.location = args[0]
@@ -143,6 +152,35 @@ class Point:
                     setattr(self, ll, kwargs.pop(ll))
             for ll in kwargs:
                 setattr(self, ll, kwargs[ll])
+
+    def __init2__(self, location=None, rotation=None, scaling=None,
+                  x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1,
+                  name=None, style=None, layer=None, seq="zxy", degrees=True):
+        self._matrix = np.eye(4)
+        self.name = name
+        self.parts = {}
+        self.seq = seq
+        self.degrees = degrees
+        self.style = style
+        self.layer = layer
+        if isinstance(location, Point):
+            self.matrix = location.matrix
+        elif is_array_like(location, [(4, 4)]):
+            self.matrix = location
+        elif is_array_like(location, [(3,),(2,), (1,)]):
+            self.location = location
+        else:
+            self.location = x,y,z
+        if rotation is not None:
+            self.rotation = rotation
+        else:
+            self.rotation = rx,ry,rz
+        if scaling is not None:
+            self.scaling = scaling
+        else:
+            self.scaling = sx,sy,sz
+
+
 
     # getters and setters
     @property
@@ -271,6 +309,19 @@ class Point:
     @property
     def sz(self):
         return np.linalg.norm(self._matrix[:3, 2])
+    
+    @property
+    def dx(self):
+        return self._matrix[:3, 0]/self.sx
+    
+    @property
+    def dy(self):
+        return self._matrix[:3, 1]/self.sy
+    
+    @property
+    def dz(self):
+        return self._matrix[:3, 2]/self.sz
+
 
     @property
     def scaling(self):
@@ -278,8 +329,14 @@ class Point:
 
     # generic methods
 
-    def copy(self):
-        return Point(self, seq=self.seq, degrees=self.degrees, name=self)
+    def copy(self,name=None):
+        """Return a copy of the point"""
+        if name is None:
+            name=self.name
+        return Point(
+            matrix=self._matrix, seq=self.seq, degrees=self.degrees, name=name
+        )
+
 
     def __repr__(self):
         out = []
@@ -386,6 +443,7 @@ class Point:
         return self.parts.keys()
 
     # transformations
+
     def moveto(self, location=None, x=0, y=0, z=0):
         """
         Move by delta or (dx,dy,dz) in the point frame
@@ -393,6 +451,7 @@ class Point:
         if location is None:
             location = np.array(x, y, z)
         self.location = location
+
         return self
 
     def moveby(self, delta=None, dx=0, dy=0, dz=0):
@@ -404,10 +463,26 @@ class Point:
         self.location += self.rotation_matrix @ delta
         return self
 
-    def rotate(self, axis, angle, degrees=True):
-        self.rotation_scipy *= Rotation.from_euler(
-            axis, angle, degrees=degrees
-        )
+
+    def rotateabout(self, axis, angle, degrees=True):
+        self.rotation_scipy *= Rotation.from_rotvec(axis*angle, degrees=degrees).as_matrix()
+
+    def rotateby(self,rx=0,ry=0,rz=0,seq=None,degrees=True,center=None):
+        if seq is None:
+            seq=self.seq
+        if center is not None:
+            self.location+=center
+        self.rotation_scipy *= Rotation.from_euler(seq,(rx,ry,rz),degrees=degrees).as_matrix()
+        if center is not None:
+            self.location-=center
+        return self
+    
+    def rotateto(self,rx=0,ry=0,rz=0,seq=None,degrees=True):
+        if seq is None:
+            seq=self.seq
+        self.rotation_scipy = Rotation.from_euler(seq,(rx,ry,rz),degrees=degrees).as_matrix()
+        return self
+
 
     def transform(self, other):
         self._matrix = other._matrix @ self._matrix
@@ -415,7 +490,7 @@ class Point:
 
     def arcby(self, angle, dx=0, dy=0, dz=0, axis="z", degrees=True):
         """
-        Move the point to the end of an arc of circle tangent to the local direction specified by delta=(dx, dy, dz) and orthogonal to axis with pathlength =|delta| and arc angle = angle:
+        Move the point to the end of an arc of circle tangent to the local direction specified by delta=(dx, dy, dz), orthogonal to `axis`, with pathlength =|delta| and arc angle = angle:
         """
         tangent = self._matrix[:3, :3] @ np.array([dx, dy, dz])
         if degrees:
@@ -455,7 +530,9 @@ class Point:
     # parts interface
 
     def __getitem__(self, key):
-        return self.parts[key].transform(self._matrix)
+        name=(self.name if self.name else '')+'/'+key
+        return self.parts[key].copy(name=name).transform(self._matrix)
+    
 
     def __getattr__(self, key):
         try:
@@ -510,20 +587,18 @@ class Point:
         canvas.draw()
         return canvas
 
-    def get_primitives(self, style=None, parent=None):
+    def get_primitives(self, style=None):
         """
         Return a list of (primitive, style, parent) to be drawn.
         """
-        if parent is None:
-            parent = self
         if style is None:
             style = self.style
         if style is None:
             style = {}
         out = []
-        if len(self.parts) == 0 or style.get("draw_locations", False):
-            out.append((self, style, parent))
+        if len(self.parts)==0 or style.get("draw_locations",False):
+             out.append((self, style)) # primitive, style, reference part
         if style.get("draw_parts", True):
-            for k, part in self.parts.items():
-                out += part.get_primitives(style, parent)
+            for k, part in self.items():
+                out += part.get_primitives(style)
         return out
