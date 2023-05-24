@@ -81,7 +81,7 @@ class PerspectiveProjection:
         points_p = self.matrix @ points_h.T
         points_p /= points_p[3]
         return points_p[:2].T
-    
+
 
 
 class Projection:
@@ -114,7 +114,7 @@ class Projection:
 
     def __call__(self, coords):
         return self.matrix @ (coords - self.origin).T
-    
+
     def __repr__(self) -> str:
         return f"Projection(origin={self.origin}, axes={self.axes}, scaling={self.scaling}, angles={self.angles})"
 
@@ -231,8 +231,6 @@ class Canvas2DMPL:
         y = [p.location[1] for p in polyline.points]
         (art,) = self.ax.plot(x, y, picker=True, pickradius=3, **style)
         return [art]
-
-
 
     def on_motion_notify(self, event):
         if event.inaxes == self.ax:

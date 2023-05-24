@@ -62,3 +62,16 @@ class Text(Point):
 
     def __repr__(self):
         return f"Text({self.text}, {self.position})"
+
+
+class Rectangle(Point):
+    def __init__(self, width, height, *args, **kwargs):
+
+        self.width = width
+        self.height = height
+
+
+    def get_primitives(self, style=None, parent=None):
+        points=np.array([self.ur.location, self.ul, self.ll, self.lr])
+
+        return super().get_primitives(style, parent)

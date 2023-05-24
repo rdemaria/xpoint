@@ -1,7 +1,7 @@
 import numpy as np
 
 from . import pose
-from .part import PolyLine
+from ..examples.archive.part import PolyLine
 
 class Line:
     def __init__(self,a,b):
