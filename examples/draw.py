@@ -1,4 +1,4 @@
-from xpoint import Point
+from xpoint import Point, Line, Arc
 
 
 p=Point(name='test')

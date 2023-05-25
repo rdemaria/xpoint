@@ -22,9 +22,9 @@ edit(): makes a shallowcopy and store under root
 from symbol import return_stmt
 import numpy as np
 
-from .style import ProxyDict, apply_style
+from ...xpoint.style import ProxyDict, apply_style
 from .pose import Pose
-from .canvas import Canvas3D
+from ...xpoint.canvas import Canvas3D
 
 class Part:
     @classmethod
