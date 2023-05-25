@@ -445,6 +445,19 @@ class Point:
         self.rotation_scipy = Rotation.from_euler(seq,(rx,ry,rz),degrees=degrees).as_matrix()
         return self
 
+    def rotate_atob(self,a, b):
+        cross = np.cross(a, b)
+        dot = np.dot(a, b)
+        skew_symmetric = np.array([
+            [0, -cross[2], cross[1]],
+            [cross[2], 0, -cross[0]],
+            [-cross[1], cross[0], 0],
+        ])
+        # Compute the rotation matrix using Rodrigues' formula
+        R = np.eye(3) + skew_symmetric + skew_symmetric@skew_symmetric * ((1 - dot) / cross@cross)
+        self._matrix = R@self._matrix
+        return self
+
 
 
     def transform(self, other):
