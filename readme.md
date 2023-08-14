@@ -24,46 +24,48 @@ p=Point(point)
 p=Point(matrix4x5)
 p=Point(location, rotation, scaling)
 p=Point(x,y,z,rx,ry,rz,sx,sy,sx)
-
 ```
+
 
 ### Inspection
 
 ```
-(p.x, p.y, p.z) == p.location
+(p.x, p.y, p.z) == p.loc
 (p.rx, p.ry, p.rz) == p.rotation
-np.r_[p.dx, p.dy. p.dz] == p.rotation_matrix
-p.rotation_axis_angle, p.rotation_quat
-p.scaling, p.scx, p.scy, p.scz
+p.scx, p.scy, p.scz = p.scaling
+np.r_[p.dx, p.dy. p.dz] == p.rotm
+?np.r_[p.du, p.dv. p.dw] == p.rotation_matrix
+p.rotation_axis_angle
+p.rotation_quat
+p.mat
+```
+
+### Copy
+
+```
+p.new
+p.clone
+p.copy()
 ```
 
 ### Translation
 Methods to create or change an entity to a new a location without changing the orientation:
 - using scalar coordinates, iterables, or existing point
-- relative or absolute change of location
 - location specified in global or local frame
 - create a new object or modify in place
 
 
 ```python
-# new point 
-p.translate(delta) # move to point
-p.translate([dx,dy,dz]) # move using vector
-p.translate(dx=,dy=,dz=) # move using coordinates
+# in place movement
+p.moveby(delta:Point) # move to point
+p.moveby([dx,dy,dz]) # move using vector
+p.moveby(dx=,dy=,dz=) # move using coordinates
+p.moveby(du=,dv=,dw=) # move using localcoordinates
+p+=delta
+# create new object
+p+delta # global coordinates
+p+p.rot@delta #local coordinates
 
-p.translate(target-reference) # move to point
-p.translate(target-[dx,dy,dz]) # move using vector
-p.translate(dx=tx-p.x,dy=ty-p.y,dz=tz-p.z) # move using coordinates
-
-
-p+Point([x,y,z])*p 
-p+[x,y,z]
-
-
-# in place
-p.location=[1,2,3]  ## p.translate(x,y,z,local=False,inplace=True)
-p.location+=[1,2,3] ## p.translate(p.x+x,p.y+y,p.z+z,local=False,inplace=True)
-p.location+=1*p.dx+2+p.dy ## p.translate(x,y,z,local=False,inplace=True)
 
 
 ```
@@ -105,11 +107,11 @@ p@point
 
 ```
 
-### ARc transformations and curves
+### Acc transformations and curves
 ```python
-p.arc_by(dx,dy,dz,angle,axis,tilt)
-p.arc_to(x,y,z,bigflag)
-p.arc_radius(radius,angle)
+p.arcby(du,dv,dw,angle,axis,tilt)
+p.arcto(x,y,z,bigflag)
+p.arcradius(radius,angle)
 ```
 
 
