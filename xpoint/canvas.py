@@ -11,7 +11,7 @@ def apply_style(primitive, style):
     """Apply style to primitive.
 
     The style is a dictionary of style properties. If a value is a dictions, the key is interpreted as selector.
-     
+
     A selector is a string that optionally starts with a character that determines the type of selector,
       followed by a string that is used to match the selector. The following selectors are supported:
 

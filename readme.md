@@ -21,20 +21,17 @@ A `Point` is a location in space with an associated set of orthogonal axis and s
 ```
 p=Point()
 p=Point(point)
-p=Point(matrix4x5)
+p=Point(matrix)
 p=Point(location, rotation, scaling)
 p=Point(x,y,z,rx,ry,rz,sx,sy,sx)
 ```
-
-
 ### Inspection
 
 ```
-(p.x, p.y, p.z) == p.loc
+(p.x, p.y, p.z) == p.location
 (p.rx, p.ry, p.rz) == p.rotation
 p.scx, p.scy, p.scz = p.scaling
-np.r_[p.dx, p.dy. p.dz] == p.rotm
-?np.r_[p.du, p.dv. p.dw] == p.rotation_matrix
+np.r_[p.du, p.dv. p.dw] == p.rotation_matrix
 p.rotation_axis_angle
 p.rotation_quat
 p.mat
@@ -54,20 +51,17 @@ Methods to create or change an entity to a new a location without changing the o
 - location specified in global or local frame
 - create a new object or modify in place
 
-
 ```python
 # in place movement
 p.moveby(delta:Point) # move to point
-p.moveby([dx,dy,dz]) # move using vector
+p.moveby([dx,dy,dz])# move using vector
 p.moveby(dx=,dy=,dz=) # move using coordinates
-p.moveby(du=,dv=,dw=) # move using localcoordinates
+p.moveby(du=,dv=,dw=) # move using local coordinates
+p.moveto([x,y,z])
 p+=delta
 # create new object
 p+delta # global coordinates
 p+p.rot@delta #local coordinates
-
-
-
 ```
 
 

@@ -1,9 +1,10 @@
 """
 
-TODO:
-    - implement scaling
-    - implement get_primitives, Line, PolyLine, Text, Distance
-    - implement draw
+A `Point` is a location in space with an associated set of orthogonal axis and           scaling that defines the local reference frame.  A point contains a `.parts`             dictionary of entities expressed in the local frame.
+
+- implement scaling
+- implement get_primitives, Line, PolyLine, Text, Distance
+- implement draw
 
 """
 
@@ -12,7 +13,6 @@ from collections.abc import Iterable
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-
 
 
 def xyz_to_array(x=0, y=0, z=0):
@@ -50,20 +50,6 @@ def has_shape(obj, shapes):
 
 class Point:
     """A point in 3D space with an orientation.
-
-    Returns
-    -------
-    Point
-        A new point object.
-
-    Usage
-    -----
-    p = Point()
-    p = Point(point)
-    p = Point(matrix)
-    p = Point(location, rotation, scaling)
-    p = Point(x, y, z) # to be forbidden?
-    p = Point(x=1, y=1, z=1, rx=1, ry=1, rz=3, scx=1, scy=1, scz=1)
 
 
     Parameters
